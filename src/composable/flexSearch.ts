@@ -1,6 +1,7 @@
 import { type MaybeRef, get } from '@vueuse/core';
 import { computed, ref } from 'vue';
 import FlexSearch from 'flexsearch';
+import levenshtein from 'damerau-levenshtein';
 
 // Define key types to match Fuse.js format
 type SearchKey = string | { name: string; weight?: number };
@@ -185,40 +186,10 @@ export function useFlexSearch<Data extends Record<string, any>>({
         .filter(Boolean) as Data[];
     }
 
-    // Calculate Levenshtein distance
-    const levenshteinDistance = (str1: string, str2: string): number => {
-      const matrix = Array(str2.length + 1).fill(null).map(() => Array(str1.length + 1).fill(null));
-
-      for (let i = 0; i <= str1.length; i++) {
-        matrix[0][i] = i;
-      }
-      for (let j = 0; j <= str2.length; j++) {
-        matrix[j][0] = j;
-      }
-
-      for (let j = 1; j <= str2.length; j++) {
-        for (let i = 1; i <= str1.length; i++) {
-          const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
-          matrix[j][i] = Math.min(
-            matrix[j][i - 1] + 1, // deletion
-            matrix[j - 1][i] + 1, // insertion
-            matrix[j - 1][i - 1] + indicator, // substitution
-          );
-        }
-      }
-
-      return matrix[str2.length][str1.length];
-    };
-
     // Calculate similarity score (0-1, where 1 is perfect match)
     const calculateSimilarity = (str1: string, str2: string): number => {
-      const maxLength = Math.max(str1.length, str2.length);
-      if (maxLength === 0) {
-        return 1;
-      }
-
-      const distance = levenshteinDistance(str1.toLowerCase(), str2.toLowerCase());
-      return 1 - (distance / maxLength);
+      const result = levenshtein(str1.toLowerCase(), str2.toLowerCase());
+      return result.similarity;
     };
 
     // Sort ALL results by similarity score, then apply limit at the end
